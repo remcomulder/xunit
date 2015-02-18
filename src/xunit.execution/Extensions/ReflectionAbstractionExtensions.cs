@@ -91,7 +91,7 @@ public static class ReflectionAbstractionExtensions
                             method.Name == methodInfo.Name
                       select method;
 
-        return methods.SingleOrDefault();
+        return methods.FirstOrDefault();
     }
 
     /// <summary>
@@ -181,6 +181,6 @@ public static class ReflectionAbstractionExtensions
         if (reflectionTypeInfo != null)
             return reflectionTypeInfo.Type;
 
-        return Reflector.GetType(typeInfo.Assembly.Name, typeInfo.Name);
+        return SerializationHelper.GetType(typeInfo.Assembly.Name, typeInfo.Name);
     }
 }

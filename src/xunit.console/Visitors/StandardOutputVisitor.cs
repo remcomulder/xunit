@@ -12,8 +12,10 @@ namespace Xunit.ConsoleClient
         readonly object consoleLock;
         readonly ConcurrentDictionary<string, ExecutionSummary> completionMessages;
         readonly string defaultDirectory;
+        readonly bool quiet;
 
         public StandardOutputVisitor(object consoleLock,
+                                     bool quiet,
                                      string defaultDirectory,
                                      XElement assemblyElement,
                                      Func<bool> cancelThunk,
@@ -21,6 +23,7 @@ namespace Xunit.ConsoleClient
             : base(assemblyElement, cancelThunk)
         {
             this.consoleLock = consoleLock;
+            this.quiet = quiet;
             this.defaultDirectory = defaultDirectory;
             this.completionMessages = completionMessages;
         }
@@ -29,8 +32,9 @@ namespace Xunit.ConsoleClient
         {
             assemblyFileName = Path.GetFileName(assemblyStarting.TestAssembly.Assembly.AssemblyPath);
 
-            lock (consoleLock)
-                Console.WriteLine("Starting:    {0}", Path.GetFileNameWithoutExtension(assemblyFileName));
+            if (!quiet)
+                lock (consoleLock)
+                    Console.WriteLine("Starting:    {0}", Path.GetFileNameWithoutExtension(assemblyFileName));
 
             return base.Visit(assemblyStarting);
         }
@@ -40,8 +44,9 @@ namespace Xunit.ConsoleClient
             // Base class does computation of results, so call it first.
             var result = base.Visit(assemblyFinished);
 
-            lock (consoleLock)
-                Console.WriteLine("Finished:    {0}", Path.GetFileNameWithoutExtension(assemblyFileName));
+            if (!quiet)
+                lock (consoleLock)
+                    Console.WriteLine("Finished:    {0}", Path.GetFileNameWithoutExtension(assemblyFileName));
 
             if (completionMessages != null)
                 completionMessages.TryAdd(Path.GetFileNameWithoutExtension(assemblyFileName), new ExecutionSummary
@@ -83,9 +88,9 @@ namespace Xunit.ConsoleClient
             {
                 // TODO: Thread-safe way to figure out the default foreground color
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Error.WriteLine("   {0} [SKIP]", Escape(testSkipped.Test.DisplayName));
+                Console.WriteLine("   {0} [SKIP]", Escape(testSkipped.Test.DisplayName));
                 Console.ForegroundColor = ConsoleColor.Gray;
-                Console.Error.WriteLine("      {0}", Escape(testSkipped.Reason));
+                Console.WriteLine("      {0}", Escape(testSkipped.Reason));
             }
 
             return base.Visit(testSkipped);

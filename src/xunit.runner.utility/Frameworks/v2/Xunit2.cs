@@ -23,8 +23,14 @@ namespace Xunit
         /// tests to be discovered and run without locking assembly files on disk.</param>
         /// <param name="shadowCopyFolder">The path on disk to use for shadow copying; if <c>null</c>, a folder
         /// will be automatically (randomly) generated</param>
-        public Xunit2(ISourceInformationProvider sourceInformationProvider, string assemblyFileName, string configFileName = null, bool shadowCopy = true, string shadowCopyFolder = null)
-            : base(sourceInformationProvider, assemblyFileName, configFileName, shadowCopy, shadowCopyFolder)
+        /// <param name="diagnosticMessageSink">The message sink which received <see cref="IDiagnosticMessage"/> messages.</param>
+        public Xunit2(ISourceInformationProvider sourceInformationProvider,
+                      string assemblyFileName,
+                      string configFileName = null,
+                      bool shadowCopy = true,
+                      string shadowCopyFolder = null,
+                      IMessageSink diagnosticMessageSink = null)
+            : base(sourceInformationProvider, assemblyFileName, configFileName, shadowCopy, shadowCopyFolder, diagnosticMessageSink)
         {
 #if ANDROID
             var assm = Assembly.Load(assemblyFileName);
@@ -58,12 +64,7 @@ namespace Xunit
         /// <param name="messageSink">The message sink to report results back to.</param>
         /// <param name="discoveryOptions">The options to be used during test discovery.</param>
         /// <param name="executionOptions">The options to be used during test execution.</param>
-        public void Run(IMessageSink messageSink, XunitDiscoveryOptions discoveryOptions, XunitExecutionOptions executionOptions)
-        {
-            executor.RunAll(messageSink, discoveryOptions, executionOptions);
-        }
-
-        void ITestFrameworkExecutor.RunAll(IMessageSink messageSink, ITestFrameworkOptions discoveryOptions, ITestFrameworkOptions executionOptions)
+        public void RunAll(IMessageSink messageSink, ITestFrameworkDiscoveryOptions discoveryOptions, ITestFrameworkExecutionOptions executionOptions)
         {
             executor.RunAll(messageSink, discoveryOptions, executionOptions);
         }
@@ -74,14 +75,9 @@ namespace Xunit
         /// <param name="testCases">The test cases to run; if null, all tests in the assembly are run.</param>
         /// <param name="messageSink">The message sink to report results back to.</param>
         /// <param name="executionOptions">The options to be used during test execution.</param>
-        public void Run(IEnumerable<ITestCase> testCases, IMessageSink messageSink, XunitExecutionOptions executionOptions)
+        public void RunTests(IEnumerable<ITestCase> testCases, IMessageSink messageSink, ITestFrameworkExecutionOptions executionOptions)
         {
             executor.RunTests(testCases, messageSink, executionOptions);
-        }
-
-        void ITestFrameworkExecutor.RunTests(IEnumerable<ITestCase> testCases, IMessageSink messageSink, ITestFrameworkOptions options)
-        {
-            executor.RunTests(testCases, messageSink, options);
         }
     }
 }

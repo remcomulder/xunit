@@ -25,21 +25,13 @@ namespace Xunit.Sdk
         /// </summary>
         /// <param name="assemblyInfo">The test assembly.</param>
         /// <param name="sourceProvider">The source information provider.</param>
-        public XunitTestFrameworkDiscoverer(IAssemblyInfo assemblyInfo, ISourceInformationProvider sourceProvider)
-            : this(assemblyInfo, sourceProvider, null, null) { }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="XunitTestFrameworkDiscoverer"/> class.
-        /// </summary>
-        /// <param name="assemblyInfo">The test assembly.</param>
-        /// <param name="sourceProvider">The source information provider.</param>
+        /// <param name="diagnosticMessageSink">The message sink used to send diagnostic messages</param>
         /// <param name="collectionFactory">The test collection factory used to look up test collections.</param>
-        /// <param name="messageAggregator">The message aggregator to receive environmental warnings from.</param>
         public XunitTestFrameworkDiscoverer(IAssemblyInfo assemblyInfo,
                                             ISourceInformationProvider sourceProvider,
-                                            IXunitTestCollectionFactory collectionFactory,
-                                            IMessageAggregator messageAggregator)
-            : base(assemblyInfo, sourceProvider, messageAggregator)
+                                            IMessageSink diagnosticMessageSink,
+                                            IXunitTestCollectionFactory collectionFactory = null)
+            : base(assemblyInfo, sourceProvider, diagnosticMessageSink)
         {
             var collectionBehaviorAttribute = assemblyInfo.GetCustomAttributes(typeof(CollectionBehaviorAttribute)).SingleOrDefault();
             var disableParallelization = collectionBehaviorAttribute == null ? false : collectionBehaviorAttribute.GetNamedArgument<bool>("DisableTestParallelization");
@@ -50,7 +42,7 @@ namespace Xunit.Sdk
 #endif
             var testAssembly = new TestAssembly(assemblyInfo, config);
 
-            TestCollectionFactory = collectionFactory ?? ExtensibilityPointFactory.GetXunitTestCollectionFactory(collectionBehaviorAttribute, testAssembly);
+            TestCollectionFactory = collectionFactory ?? ExtensibilityPointFactory.GetXunitTestCollectionFactory(diagnosticMessageSink, collectionBehaviorAttribute, testAssembly);
             TestFrameworkDisplayName = String.Format("{0} [{1}, {2}]",
                                                      DisplayName,
                                                      TestCollectionFactory.DisplayName,
@@ -76,7 +68,7 @@ namespace Xunit.Sdk
         /// <param name="messageBus">The message bus to report discovery messages to.</param>
         /// <param name="discoveryOptions">The options used by the test framework during discovery.</param>
         /// <returns>Return <c>true</c> to continue test discovery, <c>false</c>, otherwise.</returns>
-        protected virtual bool FindTestsForMethod(ITestMethod testMethod, bool includeSourceInformation, IMessageBus messageBus, ITestFrameworkOptions discoveryOptions)
+        protected virtual bool FindTestsForMethod(ITestMethod testMethod, bool includeSourceInformation, IMessageBus messageBus, ITestFrameworkDiscoveryOptions discoveryOptions)
         {
             var factAttribute = testMethod.Method.GetCustomAttributes(typeof(FactAttribute)).FirstOrDefault();
             if (factAttribute == null)
@@ -87,7 +79,7 @@ namespace Xunit.Sdk
                 return true;
 
             var args = testCaseDiscovererAttribute.GetConstructorArguments().Cast<string>().ToList();
-            var discovererType = Reflector.GetType(args[1], args[0]);
+            var discovererType = SerializationHelper.GetType(args[1], args[0]);
             if (discovererType == null)
                 return true;
 
@@ -95,9 +87,7 @@ namespace Xunit.Sdk
             if (discoverer == null)
                 return true;
 
-            var methodDisplayString = discoveryOptions.GetValue<string>(TestOptionsNames.Discovery.MethodDisplay, null);
-            var methodDisplay = methodDisplayString == null ? TestMethodDisplay.ClassAndMethod : (TestMethodDisplay)Enum.Parse(typeof(TestMethodDisplay), methodDisplayString);
-            foreach (var testCase in discoverer.Discover(methodDisplay, testMethod, factAttribute))
+            foreach (var testCase in discoverer.Discover(discoveryOptions, testMethod, factAttribute))
                 if (!ReportDiscoveredTestCase(testCase, includeSourceInformation, messageBus))
                     return false;
 
@@ -105,7 +95,7 @@ namespace Xunit.Sdk
         }
 
         /// <inheritdoc/>
-        protected override bool FindTestsForType(ITestClass testClass, bool includeSourceInformation, IMessageBus messageBus, ITestFrameworkOptions discoveryOptions)
+        protected override bool FindTestsForType(ITestClass testClass, bool includeSourceInformation, IMessageBus messageBus, ITestFrameworkDiscoveryOptions discoveryOptions)
         {
             foreach (var method in testClass.Class.GetMethods(includePrivateMethods: true))
             {
@@ -131,12 +121,12 @@ namespace Xunit.Sdk
             {
                 try
                 {
-                    result = ExtensibilityPointFactory.GetXunitTestCaseDiscoverer(discovererType);
+                    result = ExtensibilityPointFactory.GetXunitTestCaseDiscoverer(DiagnosticMessageSink, discovererType);
                 }
                 catch (Exception ex)
                 {
                     result = null;
-                    Aggregator.Add(new EnvironmentalWarning { Message = String.Format("Discoverer type '{0}' could not be created or does not implement IXunitTestCaseDiscoverer: {1}", discovererType.FullName, ex) });
+                    DiagnosticMessageSink.OnMessage(new DiagnosticMessage("Discoverer type '{0}' could not be created or does not implement IXunitTestCaseDiscoverer: {1}", discovererType.FullName, ex));
                 }
 
                 discovererCache[discovererType] = result;

@@ -10,11 +10,26 @@ param(
 get-process -name "msbuild" -ea SilentlyContinue | %{ stop-process $_.ID -force }
 
 $msbuilds = @(get-command msbuild -ea SilentlyContinue)
-if ($msbuilds.Count -eq 0) {
-    throw "MSBuild could not be found in the path. Please ensure MSBuild v12 (from Visual Studio 2013) is in the path."
+if ($msbuilds.Count -gt 0) {
+    $msbuild = $msbuilds[0].Definition
 }
-
-$msbuild = $msbuilds[0].Definition
+else {
+    if (test-path "env:\ProgramFiles(x86)") {
+        $path = join-path ${env:ProgramFiles(x86)} "MSBuild\12.0\bin\MSBuild.exe"
+        if (test-path $path) {
+            $msbuild = $path
+        }
+    }
+    if ($msbuild -eq $null) {
+        $path = join-path $env:ProgramFiles "MSBuild\12.0\bin\MSBuild.exe"
+        if (test-path $path) {
+            $msbuild = $path
+        }
+    }
+    if ($msbuild -eq $null) {
+        throw "MSBuild could not be found in the path. Please ensure MSBuild v12 (from Visual Studio 2013) is in the path."
+    }
+}
 
 if ($maxCpuCount -lt 1) {
     $maxCpuCountText = $Env:MSBuildProcessorCount
@@ -22,9 +37,9 @@ if ($maxCpuCount -lt 1) {
     $maxCpuCountText = ":$maxCpuCount"
 }
 
-$solutionNameArg = "/property:SolutionName=xunit.sln"
+$solutionNameArg = "/property:SolutionName=xunit.vs2013.sln"
 if($noXamarin) {
-    $solutionNameArg = "/property:SolutionName=xunit-NoXamarin.sln"
+    $solutionNameArg = "/property:SolutionName=xunit.vs2013.NoXamarin.sln"
 }
 
 $allArgs = @("xunit.msbuild", "/m$maxCpuCountText", "/nologo", "/verbosity:$verbosity", "/t:$target", "/property:RequestedVerbosity=$verbosity", $solutionNameArg, $args)

@@ -7,13 +7,15 @@ internal static class TestOptionsNames
         public const string MethodDisplay = "xunit.methodDisplay";
         public const string ParallelizeAssembly = "xunit.parallelizeAssembly";
         public const string ParallelizeTestCollections = "xunit.parallelizeTestCollections";
+        public const string PreEnumerateTheories = "xunit.preEnumerateTheories";
     }
 
     internal static class Discovery
     {
         public static readonly string DiagnosticMessages = "xunit.discovery.DiagnosticMessages";
         public static readonly string MethodDisplay = "xunit.discovery.MethodDisplay";
-        public static readonly string SynchronousMessageReporting = "xunit.SynchronousMessageReporting";
+        public static readonly string PreEnumerateTheories = "xunit.discovery.PreEnumerateTheories";
+        public static readonly string SynchronousMessageReporting = "xunit.discovery.SynchronousMessageReporting";
     }
 
     internal static class Execution

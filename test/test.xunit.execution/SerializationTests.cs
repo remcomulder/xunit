@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -32,10 +33,10 @@ public class SerializationTests
     {
         var sourceProvider = new NullSourceInformationProvider();
         var assemblyInfo = Reflector.Wrap(Assembly.GetExecutingAssembly());
-        var discoverer = new XunitTestFrameworkDiscoverer(assemblyInfo, sourceProvider);
+        var discoverer = new XunitTestFrameworkDiscoverer(assemblyInfo, sourceProvider, SpyMessageSink.Create());
         var visitor = new TestDiscoveryVisitor();
 
-        discoverer.Find(typeof(ClassWithFacts).FullName, false, visitor, new XunitDiscoveryOptions());
+        discoverer.Find(typeof(ClassWithFacts).FullName, false, visitor, TestFrameworkOptions.ForDiscovery());
         visitor.Finished.WaitOne();
 
         var first = visitor.TestCases[0];
@@ -61,14 +62,14 @@ public class SerializationTests
     }
 
     [Fact]
-    public static void TheoriesSerializeToIndividualTestCases()
+    public static void TheoriesWithSerializableData_ReturnAsIndividualTestCases()
     {
         var sourceProvider = new NullSourceInformationProvider();
         var assemblyInfo = Reflector.Wrap(Assembly.GetExecutingAssembly());
-        var discoverer = new XunitTestFrameworkDiscoverer(assemblyInfo, sourceProvider);
+        var discoverer = new XunitTestFrameworkDiscoverer(assemblyInfo, sourceProvider, SpyMessageSink.Create());
         var visitor = new TestDiscoveryVisitor();
 
-        discoverer.Find(typeof(ClassWithTheory).FullName, false, visitor, new XunitDiscoveryOptions());
+        discoverer.Find(typeof(ClassWithTheory).FullName, false, visitor, TestFrameworkOptions.ForDiscovery());
         visitor.Finished.WaitOne();
 
         var first = visitor.TestCases[0];
@@ -89,6 +90,33 @@ public class SerializationTests
         [Theory]
         [InlineData(1)]
         [InlineData("hello")]
+        public void Test(object x) { }
+    }
+
+    [Fact]
+    public static void TheoryWithNonSerializableData_ReturnsAsASingleTestCase()
+    {
+        var sourceProvider = new NullSourceInformationProvider();
+        var assemblyInfo = Reflector.Wrap(Assembly.GetExecutingAssembly());
+        var discoverer = new XunitTestFrameworkDiscoverer(assemblyInfo, sourceProvider, SpyMessageSink.Create());
+        var visitor = new TestDiscoveryVisitor();
+
+        discoverer.Find(typeof(ClassWithNonSerializableTheoryData).FullName, false, visitor, TestFrameworkOptions.ForDiscovery());
+        visitor.Finished.WaitOne();
+
+        var testCase = Assert.Single(visitor.TestCases);
+        Assert.IsType<XunitTheoryTestCase>(testCase);
+
+        var deserialized = SerializationHelper.Deserialize<ITestCase>(SerializationHelper.Serialize(testCase));
+        Assert.IsType<XunitTheoryTestCase>(deserialized);
+    }
+
+    class ClassWithNonSerializableTheoryData
+    {
+        public static IEnumerable<object[]> Data = new[] { new[] { new object() }, new[] { new object() } };
+
+        [Theory]
+        [MemberData("Data")]
         public void Test(object x) { }
     }
 }

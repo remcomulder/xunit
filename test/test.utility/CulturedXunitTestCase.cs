@@ -1,7 +1,6 @@
 using System;
+using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.Serialization;
-using System.Security;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit.Abstractions;
@@ -9,23 +8,18 @@ using Xunit.Sdk;
 
 namespace TestUtility
 {
-    [Serializable]
     public class CulturedXunitTestCase : XunitTestCase
     {
         private string culture;
 
-        public CulturedXunitTestCase(TestMethodDisplay defaultMethodDisplay, ITestMethod testMethod, string culture)
-            : base(defaultMethodDisplay, testMethod)
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("Called by the de-serializer", error: true)]
+        public CulturedXunitTestCase() { }
+
+        public CulturedXunitTestCase(IMessageSink diagnosticMessageSink, TestMethodDisplay defaultMethodDisplay, ITestMethod testMethod, string culture)
+            : base(diagnosticMessageSink, defaultMethodDisplay, testMethod)
         {
             Initialize(culture);
-        }
-
-        protected CulturedXunitTestCase(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-            culture = info.GetString("Culture");
-
-            Traits.Add("Culture", culture);
         }
 
         void Initialize(string culture)
@@ -37,15 +31,30 @@ namespace TestUtility
             DisplayName += String.Format(" [{0}]", culture);
         }
 
-        [SecurityCritical]
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
+        protected override string GetUniqueID()
         {
-            info.AddValue("Culture", culture);
-
-            base.GetObjectData(info, context);
+            return String.Format("{0} [{1}]", base.GetUniqueID(), culture);
         }
 
-        public override async Task<RunSummary> RunAsync(IMessageBus messageBus, object[] constructorArguments, ExceptionAggregator aggregator, CancellationTokenSource cancellationTokenSource)
+        public override void Deserialize(IXunitSerializationInfo data)
+        {
+            base.Deserialize(data);
+
+            Initialize(data.GetValue<string>("Culture"));
+        }
+
+        public override void Serialize(IXunitSerializationInfo data)
+        {
+            base.Serialize(data);
+
+            data.AddValue("Culture", culture);
+        }
+
+        public override async Task<RunSummary> RunAsync(IMessageSink diagnosticMessageSink,
+                                                        IMessageBus messageBus,
+                                                        object[] constructorArguments,
+                                                        ExceptionAggregator aggregator,
+                                                        CancellationTokenSource cancellationTokenSource)
         {
             var originalCulture = Thread.CurrentThread.CurrentCulture;
             var originalUICulture = Thread.CurrentThread.CurrentUICulture;
@@ -56,7 +65,7 @@ namespace TestUtility
                 Thread.CurrentThread.CurrentCulture = cultureInfo;
                 Thread.CurrentThread.CurrentUICulture = cultureInfo;
 
-                return await base.RunAsync(messageBus, constructorArguments, aggregator, cancellationTokenSource);
+                return await base.RunAsync(diagnosticMessageSink, messageBus, constructorArguments, aggregator, cancellationTokenSource);
             }
             finally
             {

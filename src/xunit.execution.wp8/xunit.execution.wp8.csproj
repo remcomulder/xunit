@@ -9,8 +9,8 @@
     <ProjectTypeGuids>{C089C8C0-30E0-4E22-80C0-CE093F111A43};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}</ProjectTypeGuids>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>xUnit.Execution</RootNamespace>
-    <AssemblyName>xunit.execution</AssemblyName>
+    <RootNamespace>Xunit</RootNamespace>
+    <AssemblyName>xunit.execution.wp8</AssemblyName>
     <TargetFrameworkIdentifier>WindowsPhone</TargetFrameworkIdentifier>
     <TargetFrameworkVersion>v8.0</TargetFrameworkVersion>
     <SilverlightVersion>$(TargetFrameworkVersion)</SilverlightVersion>
@@ -39,7 +39,7 @@
     <NoConfig>true</NoConfig>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DocumentationFile>Bin\Release\xunit.execution.XML</DocumentationFile>
+    <DocumentationFile>Bin\Release\xunit.execution.wp8.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <DebugSymbols>true</DebugSymbols>
@@ -61,7 +61,7 @@
     <NoConfig>true</NoConfig>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DocumentationFile>Bin\x86\Release\xunit.execution.XML</DocumentationFile>
+    <DocumentationFile>Bin\x86\Release\xunit.execution.wp8.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|ARM' ">
     <DebugSymbols>true</DebugSymbols>
@@ -83,7 +83,7 @@
     <NoConfig>true</NoConfig>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DocumentationFile>Bin\ARM\Release\xunit.execution.XML</DocumentationFile>
+    <DocumentationFile>Bin\ARM\Release\xunit.execution.wp8.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\common\DictionaryExtensions.cs">
@@ -95,6 +95,9 @@
     <Compile Include="..\common\ExceptionUtility.cs">
       <Link>Common\ExceptionUtility.cs</Link>
     </Compile>
+    <Compile Include="..\common\ExecutionHelper.cs">
+      <Link>Common\ExecutionHelper.cs</Link>
+    </Compile>
     <Compile Include="..\common\GlobalAssemblyInfo.cs">
       <Link>Properties\GlobalAssemblyInfo.cs</Link>
     </Compile>
@@ -104,11 +107,11 @@
     <Compile Include="..\common\LongLivedMarshalByRefObject_Execution_NoAppDomain.cs">
       <Link>Common\LongLivedMarshalByRefObject_Execution_NoAppDomain.cs</Link>
     </Compile>
-    <Compile Include="..\common\SerializationHelper_Strings.cs">
-      <Link>Common\SerializationHelper_Strings.cs</Link>
+    <Compile Include="..\common\NullMessageSink.cs">
+      <Link>Common\NullMessageSink.cs</Link>
     </Compile>
-    <Compile Include="..\common\SerializationInfoExtensions.cs">
-      <Link>Common\SerializationInfoExtensions.cs</Link>
+    <Compile Include="..\common\SerializationHelper.cs">
+      <Link>Common\SerializationHelper.cs</Link>
     </Compile>
     <Compile Include="..\common\SourceInformation.cs">
       <Link>Common\SourceInformation.cs</Link>
@@ -128,6 +131,9 @@
     <Compile Include="..\common\WinRTFile.cs">
       <Link>Common\WinRTFile.cs</Link>
     </Compile>
+    <Compile Include="..\common\XunitSerializationInfo.cs">
+      <Link>Common\XunitSerializationInfo.cs</Link>
+    </Compile>
     <Compile Include="..\common\XunitWorkerThread_ThreadPool.cs">
       <Link>Common\XunitWorkerThread_ThreadPool.cs</Link>
     </Compile>
@@ -140,11 +146,8 @@
     <Compile Include="..\xunit.assert\asserts\sdk\AssertEqualityComparerAdapter.cs">
       <Link>Sdk\AssertEqualityComparerAdapter.cs</Link>
     </Compile>
-    <Compile Include="..\xunit.execution.wpa81\Sdk\ExecutionContext.cs">
+    <Compile Include="..\xunit.execution.universal\Sdk\ExecutionContext.cs">
       <Link>Sdk\ExecutionContext.cs</Link>
-    </Compile>
-    <Compile Include="..\xunit.execution.wpa81\Serialization\Serializable.cs">
-      <Link>Serialization\Serializable.cs</Link>
     </Compile>
     <Compile Include="Concurrent\CollectionDebugView.cs" />
     <Compile Include="Concurrent\ConcurrentBag.cs" />

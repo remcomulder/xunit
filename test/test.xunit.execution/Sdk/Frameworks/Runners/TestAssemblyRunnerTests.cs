@@ -26,7 +26,9 @@ public class TestAssemblyRunnerTests
         [Fact]
         public static void SyncMessageBusOption()
         {
-            var runner = TestableTestAssemblyRunner.Create(options: new XunitExecutionOptions { SynchronousMessageReporting = true });
+            var executionOptions = TestFrameworkOptions.ForExecution();
+            executionOptions.SetSynchronousMessageReporting(true);
+            var runner = TestableTestAssemblyRunner.Create(executionOptions: executionOptions);
 
             var messageBus = runner.CreateMessageBus_Public();
 
@@ -289,27 +291,30 @@ public class TestAssemblyRunnerTests
 
         TestableTestAssemblyRunner(ITestAssembly testAssembly,
                                    IEnumerable<ITestCase> testCases,
-                                   IMessageSink messageSink,
-                                   ITestFrameworkOptions executionOptions,
+                                   IMessageSink diagnosticMessageSink,
+                                   IMessageSink executionMessageSink,
+                                   ITestFrameworkExecutionOptions executionOptions,
                                    RunSummary result,
                                    bool cancelInRunTestCollectionAsync)
-            : base(testAssembly, testCases, messageSink, executionOptions)
+            : base(testAssembly, testCases, diagnosticMessageSink, executionMessageSink, executionOptions)
         {
             this.result = result;
             this.cancelInRunTestCollectionAsync = cancelInRunTestCollectionAsync;
         }
 
-        public static TestableTestAssemblyRunner Create(IMessageSink messageSink = null,
+        public static TestableTestAssemblyRunner Create(IMessageSink executionMessageSink = null,
                                                         RunSummary result = null,
                                                         ITestCase[] testCases = null,
-                                                        ITestFrameworkOptions options = null,
-                                                        bool cancelInRunTestCollectionAsync = false)
+                                                        ITestFrameworkExecutionOptions executionOptions = null,
+                                                        bool cancelInRunTestCollectionAsync = false,
+                                                        IMessageSink diagnosticMessageSink = null)
         {
             return new TestableTestAssemblyRunner(
                 Mocks.TestAssembly(Assembly.GetExecutingAssembly()),
                 testCases ?? new[] { Substitute.For<ITestCase>() },  // Need at least one so it calls RunTestCollectionAsync
-                messageSink ?? SpyMessageSink.Create(),
-                options ?? new TestFrameworkOptions(),
+                diagnosticMessageSink ?? SpyMessageSink.Create(),
+                executionMessageSink ?? SpyMessageSink.Create(),
+                executionOptions ?? TestFrameworkOptions.ForExecution(),
                 result ?? new RunSummary(),
                 cancelInRunTestCollectionAsync
             );
@@ -334,7 +339,7 @@ public class TestAssemblyRunnerTests
         protected override IMessageBus CreateMessageBus()
         {
             // Use the sync message bus, so that we can immediately react to cancellations.
-            return new SynchronousMessageBus(MessageSink);
+            return new SynchronousMessageBus(ExecutionMessageSink);
         }
 
         protected override string GetTestFrameworkDisplayName()

@@ -8,6 +8,7 @@ using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Xsl;
 using Microsoft.Build.Framework;
+using Xunit.Abstractions;
 using MSBuildTask = Microsoft.Build.Utilities.Task;
 
 namespace Xunit.Runner.MSBuild
@@ -20,6 +21,7 @@ namespace Xunit.Runner.MSBuild
         int? maxParallelThreads;
         bool? parallelizeAssemblies;
         bool? parallelizeTestCollections;
+        readonly TeamCityDisplayNameFormatter teamCityDisplayNameFormatter = new TeamCityDisplayNameFormatter();
 
         public xunit()
         {
@@ -84,15 +86,15 @@ namespace Xunit.Runner.MSBuild
             cancel = true;
         }
 
-        protected virtual IFrontController CreateFrontController(string assemblyFilename, string configFileName)
+        protected virtual IFrontController CreateFrontController(string assemblyFilename, string configFileName, IMessageSink diagnosticsMessageSink)
         {
-            return new XunitFrontController(assemblyFilename, configFileName, ShadowCopy);
+            return new XunitFrontController(assemblyFilename, configFileName, ShadowCopy, diagnosticMessageSink: diagnosticsMessageSink);
         }
 
         protected virtual XmlTestExecutionVisitor CreateVisitor(string assemblyFileName, XElement assemblyElement)
         {
             if (TeamCity)
-                return new TeamCityVisitor(Log, assemblyElement, () => cancel);
+                return new TeamCityVisitor(Log, assemblyElement, () => cancel, displayNameFormatter: teamCityDisplayNameFormatter);
 
             return new StandardOutputVisitor(Log, assemblyElement, Verbose, () => cancel, completionMessages);
         }
@@ -128,7 +130,7 @@ namespace Xunit.Runner.MSBuild
                 var clockTime = Stopwatch.StartNew();
 
                 if (!parallelizeAssemblies.HasValue)
-                    parallelizeAssemblies = testAssemblyPaths.All(tuple => tuple.Item3.ParallelizeAssembly);
+                    parallelizeAssemblies = testAssemblyPaths.All(tuple => tuple.Item3.ParallelizeAssemblyOrDefault);
 
                 if (parallelizeAssemblies.GetValueOrDefault())
                 {
@@ -226,29 +228,32 @@ namespace Xunit.Runner.MSBuild
 
             try
             {
-                var discoveryOptions = new XunitDiscoveryOptions(configuration);
-                var executionOptions = new XunitExecutionOptions(configuration);
+                var discoveryOptions = TestFrameworkOptions.ForDiscovery(configuration);
+                var executionOptions = TestFrameworkOptions.ForExecution(configuration);
                 if (maxParallelThreads.HasValue)
-                    executionOptions.MaxParallelThreads = maxParallelThreads.GetValueOrDefault();
+                    executionOptions.SetMaxParallelThreads(maxParallelThreads);
                 if (parallelizeTestCollections.HasValue)
-                    executionOptions.DisableParallelization = !parallelizeTestCollections.GetValueOrDefault();
+                    executionOptions.SetDisableParallelization(!parallelizeTestCollections);
 
-                if (configuration.DiagnosticMessages)
+                var assemblyDisplayName = Path.GetFileNameWithoutExtension(assemblyFileName);
+                if (configuration.DiagnosticMessagesOrDefault)
                     Log.LogMessage(MessageImportance.High, "  Discovering: {0} (method display = {1}, parallel test collections = {2}, max threads = {3})",
-                                   Path.GetFileNameWithoutExtension(assemblyFileName),
-                                   discoveryOptions.MethodDisplay,
-                                   !executionOptions.DisableParallelization,
-                                   executionOptions.MaxParallelThreads);
+                                   assemblyDisplayName,
+                                   discoveryOptions.GetMethodDisplayOrDefault(),
+                                   !executionOptions.GetDisableParallelizationOrDefault(),
+                                   executionOptions.GetMaxParallelThreadsOrDefault());
                 else
-                Log.LogMessage(MessageImportance.High, "  Discovering: {0}", Path.GetFileNameWithoutExtension(assemblyFileName));
+                    Log.LogMessage(MessageImportance.High, "  Discovering: {0}", assemblyDisplayName);
 
-                using (var controller = CreateFrontController(assemblyFileName, configFileName))
+                var diagnosticMessageVisitor = new DiagnosticMessageVisitor(Log, assemblyDisplayName, configuration.DiagnosticMessagesOrDefault);
+
+                using (var controller = CreateFrontController(assemblyFileName, configFileName, diagnosticMessageVisitor))
                 using (var discoveryVisitor = new TestDiscoveryVisitor())
                 {
-                    controller.Find(includeSourceInformation: false, messageSink: discoveryVisitor, discoveryOptions: discoveryOptions);
+                    controller.Find(includeSourceInformation: false, discoveryMessageSink: discoveryVisitor, discoveryOptions: discoveryOptions);
                     discoveryVisitor.Finished.WaitOne();
 
-                    Log.LogMessage(MessageImportance.High, "  Discovered:  {0}", Path.GetFileNameWithoutExtension(assemblyFileName));
+                    Log.LogMessage(MessageImportance.High, "  Discovered:  {0}", assemblyDisplayName);
 
                     using (var resultsVisitor = CreateVisitor(assemblyFileName, assemblyElement))
                     {

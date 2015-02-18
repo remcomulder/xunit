@@ -62,6 +62,7 @@ public class TeamCityVisitorTests
         public static void LogsMessage(IMessageSinkMessage message, string messageType)
         {
             var logger = SpyLogger.Create();
+
             using (var visitor = new TeamCityVisitor(logger, null, null))
             {
                 visitor.OnMessage(message);
@@ -75,7 +76,7 @@ public class TeamCityVisitorTests
     public class OnMessage_TestCollectionFinished
     {
         [Fact]
-        public void LogsMessage()
+        public static void LogsMessage()
         {
             var collectionFinished = Substitute.For<ITestCollectionFinished>();
             collectionFinished.TestsRun.Returns(2112);
@@ -83,118 +84,142 @@ public class TeamCityVisitorTests
             collectionFinished.TestsSkipped.Returns(6);
             collectionFinished.ExecutionTime.Returns(123.4567M);
             collectionFinished.TestCollection.DisplayName.Returns("Display Name");
+            var formatter = Substitute.For<TeamCityDisplayNameFormatter>();
+            formatter.DisplayName(collectionFinished.TestCollection).Returns("formattedTestCollectionDisplayName");
 
             var logger = SpyLogger.Create();
-            var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId");
 
-            visitor.OnMessage(collectionFinished);
+            using (var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId", formatter))
+            {
+                visitor.OnMessage(collectionFinished);
 
-            Assert.Single(logger.Messages, @"MESSAGE[High]: ##teamcity[testSuiteFinished name='Display Name' flowId='myFlowId']");
+                Assert.Single(logger.Messages, @"MESSAGE[High]: ##teamcity[testSuiteFinished name='formattedTestCollectionDisplayName' flowId='myFlowId']");
+            }
         }
     }
 
     public class OnMessage_TestCollectionStarting
     {
         [Fact]
-        public void LogsMessage()
+        public static void LogsMessage()
         {
             var collectionStarting = Substitute.For<ITestCollectionStarting>();
             collectionStarting.TestCollection.DisplayName.Returns("Display Name");
+            var formatter = Substitute.For<TeamCityDisplayNameFormatter>();
+            formatter.DisplayName(collectionStarting.TestCollection).Returns("formattedTestCollectionDisplayName");
 
             var logger = SpyLogger.Create();
-            var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId");
 
-            visitor.OnMessage(collectionStarting);
+            using (var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId", formatter))
+            {
+                visitor.OnMessage(collectionStarting);
 
-            Assert.Collection(logger.Messages,
-                msg => Assert.Equal(@"MESSAGE[High]: ##teamcity[testSuiteStarted name='Display Name' flowId='myFlowId']", msg));
+                Assert.Collection(logger.Messages,
+                    msg => Assert.Equal(@"MESSAGE[High]: ##teamcity[testSuiteStarted name='formattedTestCollectionDisplayName' flowId='myFlowId']", msg));
+            }
         }
     }
 
     public class OnMessage_TestFailed
     {
         [Fact]
-        public void LogsTestNameWithExceptionAndStackTrace()
+        public static void LogsTestNameWithExceptionAndStackTrace()
         {
             var testFailed = Substitute.For<ITestFailed>();
-            var test = Mocks.Test(null, "This is my display name \t\r\n");
+            var test = Mocks.Test(null, "???");
             testFailed.Test.Returns(test);
             testFailed.ExecutionTime.Returns(1.2345M);
             testFailed.Messages.Returns(new[] { "This is my message \t\r\n" });
             testFailed.StackTraces.Returns(new[] { "Line 1\r\nLine 2\r\nLine 3" });
             testFailed.ExceptionTypes.Returns(new[] { "ExceptionType" });
             testFailed.ExceptionParentIndices.Returns(new[] { -1 });
+            var formatter = Substitute.For<TeamCityDisplayNameFormatter>();
+            formatter.DisplayName(test).Returns("This is my display name \t\r\n");
 
             var logger = SpyLogger.Create();
-            var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId");
 
-            visitor.OnMessage(testFailed);
+            using (var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId", formatter))
+            {
+                visitor.OnMessage(testFailed);
 
-            Assert.Collection(logger.Messages,
-                msg => Assert.Equal("MESSAGE[High]: ##teamcity[testFailed name='This is my display name \t|r|n' details='ExceptionType : This is my message \t|r|n|r|nLine 1|r|nLine 2|r|nLine 3' flowId='myFlowId']", msg),
-                msg => Assert.Equal("MESSAGE[High]: ##teamcity[testFinished name='This is my display name \t|r|n' duration='1234' flowId='myFlowId']", msg)
-            );
+                Assert.Collection(logger.Messages,
+                    msg => Assert.Equal("MESSAGE[High]: ##teamcity[testFailed name='This is my display name \t|r|n' details='ExceptionType : This is my message \t|r|n|r|nLine 1|r|nLine 2|r|nLine 3' flowId='myFlowId']", msg),
+                    msg => Assert.Equal("MESSAGE[High]: ##teamcity[testFinished name='This is my display name \t|r|n' duration='1234' flowId='myFlowId']", msg)
+                );
+            }
         }
     }
 
     public class OnMessage_TestPassed
     {
         [Fact]
-        public void LogsTestName()
+        public static void LogsTestName()
         {
             var testPassed = Substitute.For<ITestPassed>();
-            var test = Mocks.Test(null, "This is my display name \t\r\n");
+            var test = Mocks.Test(null, "???");
             testPassed.Test.Returns(test);
             testPassed.ExecutionTime.Returns(1.2345M);
+            var formatter = Substitute.For<TeamCityDisplayNameFormatter>();
+            formatter.DisplayName(test).Returns("This is my display name \t\r\n");
 
             var logger = SpyLogger.Create();
-            var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId");
 
-            visitor.OnMessage(testPassed);
+            using (var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId", formatter))
+            {
+                visitor.OnMessage(testPassed);
 
-            Assert.Collection(logger.Messages,
-                msg => Assert.Equal("MESSAGE[High]: ##teamcity[testFinished name='This is my display name \t|r|n' duration='1234' flowId='myFlowId']", msg)
-            );
+                Assert.Collection(logger.Messages,
+                    msg => Assert.Equal("MESSAGE[High]: ##teamcity[testFinished name='This is my display name \t|r|n' duration='1234' flowId='myFlowId']", msg)
+                );
+            }
         }
     }
 
     public class OnMessage_TestSkipped
     {
         [Fact]
-        public void LogsTestNameAsWarning()
+        public static void LogsTestNameAsWarning()
         {
             var testSkipped = Substitute.For<ITestSkipped>();
-            var test = Mocks.Test(null, "This is my display name \t\r\n");
+            var test = Mocks.Test(null, "???");
             testSkipped.Test.Returns(test);
             testSkipped.Reason.Returns("This is my skip reason \t\r\n");
+            var formatter = Substitute.For<TeamCityDisplayNameFormatter>();
+            formatter.DisplayName(test).Returns("This is my display name \t\r\n");
 
             var logger = SpyLogger.Create();
-            var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId");
 
-            visitor.OnMessage(testSkipped);
+            using (var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId", formatter))
+            {
+                visitor.OnMessage(testSkipped);
 
-            Assert.Collection(logger.Messages,
-                msg => Assert.Equal("MESSAGE[High]: ##teamcity[testIgnored name='This is my display name \t|r|n' message='This is my skip reason \t|r|n' flowId='myFlowId']", msg),
-                msg => Assert.Equal("MESSAGE[High]: ##teamcity[testFinished name='This is my display name \t|r|n' duration='0' flowId='myFlowId']", msg)
-            );
+                Assert.Collection(logger.Messages,
+                    msg => Assert.Equal("MESSAGE[High]: ##teamcity[testIgnored name='This is my display name \t|r|n' message='This is my skip reason \t|r|n' flowId='myFlowId']", msg),
+                    msg => Assert.Equal("MESSAGE[High]: ##teamcity[testFinished name='This is my display name \t|r|n' duration='0' flowId='myFlowId']", msg)
+                );
+            }
         }
     }
 
     public class OnMessage_TestStarting
     {
         [Fact]
-        public void LogsTestName()
+        public static void LogsTestName()
         {
             var testStarting = Substitute.For<ITestStarting>();
-            var test = Mocks.Test(null, "This is my display name \t\r\n");
+            var test = Mocks.Test(null, "???");
             testStarting.Test.Returns(test);
+            var formatter = Substitute.For<TeamCityDisplayNameFormatter>();
+            formatter.DisplayName(test).Returns("This is my display name \t\r\n");
 
             var logger = SpyLogger.Create();
-            var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId");
 
-            visitor.OnMessage(testStarting);
+            using (var visitor = new TeamCityVisitor(logger, null, null, _ => "myFlowId", formatter))
+            {
+                visitor.OnMessage(testStarting);
 
-            Assert.Single(logger.Messages, "MESSAGE[High]: ##teamcity[testStarted name='This is my display name \t|r|n' flowId='myFlowId']");
+                Assert.Single(logger.Messages, "MESSAGE[High]: ##teamcity[testStarted name='This is my display name \t|r|n' flowId='myFlowId']");
+            }
         }
     }
 }

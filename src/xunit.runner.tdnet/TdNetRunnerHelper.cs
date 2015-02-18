@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using TestDriven.Framework;
@@ -24,19 +25,20 @@ namespace Xunit.Runner.TdNet
             this.testListener = testListener;
 
             var assemblyFileName = assembly.GetLocalCodeBase();
-            xunit = new Xunit2(new NullSourceInformationProvider(), assemblyFileName);
             configuration = ConfigReader.Load(assemblyFileName);
+            var diagnosticMessageVisitor = new DiagnosticMessageVisitor(testListener, Path.GetFileNameWithoutExtension(assemblyFileName), configuration.DiagnosticMessagesOrDefault);
+            xunit = new Xunit2(new NullSourceInformationProvider(), assemblyFileName, diagnosticMessageSink: diagnosticMessageVisitor);
             toDispose.Push(xunit);
         }
 
         public virtual IEnumerable<ITestCase> Discover()
         {
-            return Discover(sink => xunit.Find(false, sink, new XunitDiscoveryOptions(configuration)));
+            return Discover(sink => xunit.Find(false, sink, TestFrameworkOptions.ForDiscovery(configuration)));
         }
 
         private IEnumerable<ITestCase> Discover(Type type)
         {
-            return Discover(sink => xunit.Find(type.FullName, false, sink, new XunitDiscoveryOptions(configuration)));
+            return Discover(sink => xunit.Find(type.FullName, false, sink, TestFrameworkOptions.ForDiscovery(configuration)));
         }
 
         private IEnumerable<ITestCase> Discover(Action<IMessageSink> discoveryAction)
@@ -72,10 +74,11 @@ namespace Xunit.Runner.TdNet
                 var visitor = new ResultVisitor(testListener) { TestRunState = initialRunState };
                 toDispose.Push(visitor);
 
+                var executionOptions = TestFrameworkOptions.ForExecution(configuration);
                 if (testCases == null)
-                    xunit.Run(visitor, new XunitDiscoveryOptions(configuration), new XunitExecutionOptions(configuration));
+                    xunit.RunAll(visitor, TestFrameworkOptions.ForDiscovery(configuration), executionOptions);
                 else
-                    xunit.Run(testCases, visitor, new XunitExecutionOptions(configuration));
+                    xunit.RunTests(testCases, visitor, executionOptions);
 
                 visitor.Finished.WaitOne();
 

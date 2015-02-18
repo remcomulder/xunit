@@ -26,14 +26,14 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;XUNIT_CORE_DLL</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;XUNIT_CORE_DLL;NEW_REFLECTION</DefineConstants>
     <DocumentationFile>bin\Debug\xunit.core.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE;XUNIT_CORE_DLL</DefineConstants>
+    <DefineConstants>TRACE;XUNIT_CORE_DLL;NEW_REFLECTION</DefineConstants>
     <DocumentationFile>bin\Release\xunit.core.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
@@ -69,6 +69,7 @@
     <Compile Include="ITestCollectionOrderer.cs" />
     <Compile Include="MemberDataAttribute.cs" />
     <Compile Include="Extensions\PropertyDataAttribute.cs" />
+    <Compile Include="Record.cs" />
     <Compile Include="Sdk\BeforeAfterTestAttribute.cs" />
     <Compile Include="Sdk\DataAttribute.cs" />
     <Compile Include="Sdk\MemberDataDiscoverer.cs" />
@@ -76,7 +77,6 @@
     <Compile Include="Sdk\DataDiscovererAttribute.cs" />
     <Compile Include="Sdk\ExceptionAggregator.cs" />
     <Compile Include="Sdk\IDataDiscoverer.cs" />
-    <Compile Include="Sdk\IMessageAggregator.cs" />
     <Compile Include="Sdk\IMessageBus.cs" />
     <Compile Include="Sdk\InlineDataDiscoverer.cs" />
     <Compile Include="Sdk\ITestCaseOrderer.cs" />
@@ -103,9 +103,11 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="build\xunit.core.wp8.targets" />
-    <None Include="build\xunit.core.targets" />
+    <None Include="build\xunit.core.win8.targets" />
+    <None Include="build\xunit.core.WithDesktop.props" />
     <None Include="build\xunit.core.props" />
+    <None Include="build\xunit.core.universal.targets" />
+    <None Include="build\xunit.core.wp8.targets" />
     <None Include="xunit.core.dll.tdnet">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

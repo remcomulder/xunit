@@ -25,13 +25,15 @@ namespace Xunit.Sdk
         /// </summary>
         /// <param name="testAssembly">The assembly that contains the tests to be run.</param>
         /// <param name="testCases">The test cases to be run.</param>
-        /// <param name="messageSink">The message sink to report run status to.</param>
+        /// <param name="diagnosticMessageSink">The message sink to report diagnostic messages to.</param>
+        /// <param name="executionMessageSink">The message sink to report run status to.</param>
         /// <param name="executionOptions">The user's requested execution options.</param>
         public XunitTestAssemblyRunner(ITestAssembly testAssembly,
                                        IEnumerable<IXunitTestCase> testCases,
-                                       IMessageSink messageSink,
-                                       ITestFrameworkOptions executionOptions)
-            : base(testAssembly, testCases, messageSink, executionOptions) { }
+                                       IMessageSink diagnosticMessageSink,
+                                       IMessageSink executionMessageSink,
+                                       ITestFrameworkExecutionOptions executionOptions)
+            : base(testAssembly, testCases, diagnosticMessageSink, executionMessageSink, executionOptions) { }
 
         /// <inheritdoc/>
         public override void Dispose()
@@ -52,7 +54,7 @@ namespace Xunit.Sdk
         {
             Initialize();
 
-            var testCollectionFactory = ExtensibilityPointFactory.GetXunitTestCollectionFactory(collectionBehaviorAttribute, TestAssembly);
+            var testCollectionFactory = ExtensibilityPointFactory.GetXunitTestCollectionFactory(DiagnosticMessageSink, collectionBehaviorAttribute, TestAssembly);
 
             return String.Format("{0} [{1}, {2}{3}]",
                                  base.GetTestFrameworkEnvironment(),
@@ -92,18 +94,18 @@ namespace Xunit.Sdk
                 maxParallelThreads = collectionBehaviorAttribute.GetNamedArgument<int>("MaxParallelThreads");
             }
 
-            disableParallelization = ExecutionOptions.GetValue<bool>(TestOptionsNames.Execution.DisableParallelization, disableParallelization);
-            var maxParallelThreadsOption = ExecutionOptions.GetValue<int>(TestOptionsNames.Execution.MaxParallelThreads, 0);
+            disableParallelization = ExecutionOptions.DisableParallelization() ?? disableParallelization;
+            var maxParallelThreadsOption = ExecutionOptions.MaxParallelThreads() ?? 0;
             if (maxParallelThreadsOption > 0)
                 maxParallelThreads = maxParallelThreadsOption;
 
             var testCaseOrdererAttribute = TestAssembly.Assembly.GetCustomAttributes(typeof(TestCaseOrdererAttribute)).SingleOrDefault();
             if (testCaseOrdererAttribute != null)
-                TestCaseOrderer = ExtensibilityPointFactory.GetTestCaseOrderer(testCaseOrdererAttribute);
+                TestCaseOrderer = ExtensibilityPointFactory.GetTestCaseOrderer(DiagnosticMessageSink, testCaseOrdererAttribute);
 
             var testCollectionOrdererAttribute = TestAssembly.Assembly.GetCustomAttributes(typeof(TestCollectionOrdererAttribute)).SingleOrDefault();
             if (testCollectionOrdererAttribute != null)
-                TestCollectionOrderer = ExtensibilityPointFactory.GetTestCollectionOrderer(testCollectionOrdererAttribute);
+                TestCollectionOrderer = ExtensibilityPointFactory.GetTestCollectionOrderer(DiagnosticMessageSink, testCollectionOrdererAttribute);
 
             initialized = true;
         }
@@ -137,7 +139,7 @@ namespace Xunit.Sdk
             var tasks = OrderTestCases().Select(
                 collection => Task.Factory.StartNew(() => RunTestCollectionAsync(messageBus, collection.Item1, collection.Item2, cancellationTokenSource),
                                                                                  cancellationTokenSource.Token,
-                                                                                 TaskCreationOptions.DenyChildAttach,
+                                                                                 TaskCreationOptions.DenyChildAttach | TaskCreationOptions.HideScheduler,
                                                                                  scheduler)
             ).ToArray();
 
@@ -154,7 +156,7 @@ namespace Xunit.Sdk
         /// <inheritdoc/>
         protected override Task<RunSummary> RunTestCollectionAsync(IMessageBus messageBus, ITestCollection testCollection, IEnumerable<IXunitTestCase> testCases, CancellationTokenSource cancellationTokenSource)
         {
-            return new XunitTestCollectionRunner(testCollection, testCases, messageBus, TestCaseOrderer, new ExceptionAggregator(Aggregator), cancellationTokenSource).RunAsync();
+            return new XunitTestCollectionRunner(testCollection, testCases, DiagnosticMessageSink, messageBus, TestCaseOrderer, new ExceptionAggregator(Aggregator), cancellationTokenSource).RunAsync();
         }
 
         [SecuritySafeCritical]

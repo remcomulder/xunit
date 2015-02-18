@@ -25,12 +25,22 @@ namespace Xunit
         /// the location of xunit.execution.dll is implied based on the location of the test assembly</param>
         /// <param name="shadowCopyFolder">The path on disk to use for shadow copying; if <c>null</c>, a folder
         /// will be automatically (randomly) generated</param>
-        public Xunit2Discoverer(ISourceInformationProvider sourceInformationProvider, IAssemblyInfo assemblyInfo, string xunitExecutionAssemblyPath = null, string shadowCopyFolder = null)
-            : this(sourceInformationProvider, assemblyInfo, null, xunitExecutionAssemblyPath ?? GetXunitExecutionAssemblyPath(assemblyInfo), null, true, shadowCopyFolder) { }
+        /// <param name="diagnosticMessageSink">The message sink which received <see cref="IDiagnosticMessage"/> messages.</param>
+        public Xunit2Discoverer(ISourceInformationProvider sourceInformationProvider,
+                                IAssemblyInfo assemblyInfo,
+                                string xunitExecutionAssemblyPath = null,
+                                string shadowCopyFolder = null,
+                                IMessageSink diagnosticMessageSink = null)
+            : this(sourceInformationProvider, assemblyInfo, null, xunitExecutionAssemblyPath ?? GetXunitExecutionAssemblyPath(assemblyInfo), null, true, shadowCopyFolder, diagnosticMessageSink) { }
 
         // Used by Xunit2 when initializing for both discovery and execution.
-        internal Xunit2Discoverer(ISourceInformationProvider sourceInformationProvider, string assemblyFileName, string configFileName, bool shadowCopy, string shadowCopyFolder = null)
-            : this(sourceInformationProvider, null, assemblyFileName, GetXunitExecutionAssemblyPath(assemblyFileName), configFileName, shadowCopy, shadowCopyFolder) { }
+        internal Xunit2Discoverer(ISourceInformationProvider sourceInformationProvider,
+                                  string assemblyFileName,
+                                  string configFileName,
+                                  bool shadowCopy,
+                                  string shadowCopyFolder = null,
+                                  IMessageSink diagnosticMessageSink = null)
+            : this(sourceInformationProvider, null, assemblyFileName, GetXunitExecutionAssemblyPath(assemblyFileName), configFileName, shadowCopy, shadowCopyFolder, diagnosticMessageSink) { }
 
         Xunit2Discoverer(ISourceInformationProvider sourceInformationProvider,
                          IAssemblyInfo assemblyInfo,
@@ -38,10 +48,13 @@ namespace Xunit
                          string xunitExecutionAssemblyPath,
                          string configFileName,
                          bool shadowCopy,
-                         string shadowCopyFolder)
+                         string shadowCopyFolder,
+                         IMessageSink diagnosticMessageSink)
         {
             Guard.ArgumentNotNull("assemblyInfo", (object)assemblyInfo ?? assemblyFileName);
             Guard.FileExists("xunitExecutionAssemblyPath", xunitExecutionAssemblyPath);
+
+            DiagnosticMessageSink = diagnosticMessageSink ?? new NullMessageSink();
 
             appDomain = new RemoteAppDomainManager(assemblyFileName ?? xunitExecutionAssemblyPath, configFileName, shadowCopy, shadowCopyFolder);
 
@@ -51,9 +64,14 @@ namespace Xunit
             if (assemblyInfo == null)
                 assemblyInfo = appDomain.CreateObject<IAssemblyInfo>(testFrameworkAssemblyName, "Xunit.Sdk.ReflectionAssemblyInfo", assemblyFileName);
 
-            framework = appDomain.CreateObject<ITestFramework>(testFrameworkAssemblyName, "Xunit.Sdk.TestFrameworkProxy", assemblyInfo, sourceInformationProvider);
+            framework = appDomain.CreateObject<ITestFramework>(testFrameworkAssemblyName, "Xunit.Sdk.TestFrameworkProxy", assemblyInfo, sourceInformationProvider, DiagnosticMessageSink);
             discoverer = Framework.GetDiscoverer(assemblyInfo);
         }
+
+        /// <summary>
+        /// Gets the message sink used to report diagnostic messages.
+        /// </summary>
+        public IMessageSink DiagnosticMessageSink { get; private set; }
 
         private static string GetTestFrameworkAssemblyName(string xunitExecutionAssemblyPath)
         {
@@ -103,16 +121,10 @@ namespace Xunit
         /// </summary>
         /// <param name="includeSourceInformation">Whether to include source file information, if possible.</param>
         /// <param name="messageSink">The message sink to report results back to.</param>
-        /// <param name="options">The options used by the test framework during discovery.</param>
-        public void Find(bool includeSourceInformation, IMessageSink messageSink, XunitDiscoveryOptions options)
+        /// <param name="discoveryOptions">The options used by the test framework during discovery.</param>
+        public void Find(bool includeSourceInformation, IMessageSink messageSink, ITestFrameworkDiscoveryOptions discoveryOptions)
         {
-            discoverer.Find(includeSourceInformation, messageSink, options);
-        }
-
-        /// <inheritdoc/>
-        void ITestFrameworkDiscoverer.Find(bool includeSourceInformation, IMessageSink messageSink, ITestFrameworkOptions options)
-        {
-            discoverer.Find(includeSourceInformation, messageSink, options);
+            discoverer.Find(includeSourceInformation, messageSink, discoveryOptions);
         }
 
         /// <summary>
@@ -121,16 +133,10 @@ namespace Xunit
         /// <param name="typeName">The fully qualified type name to find tests in.</param>
         /// <param name="includeSourceInformation">Whether to include source file information, if possible.</param>
         /// <param name="messageSink">The message sink to report results back to.</param>
-        /// <param name="options">The options used by the test framework during discovery.</param>
-        public void Find(string typeName, bool includeSourceInformation, IMessageSink messageSink, XunitDiscoveryOptions options)
+        /// <param name="discoveryOptions">The options used by the test framework during discovery.</param>
+        public void Find(string typeName, bool includeSourceInformation, IMessageSink messageSink, ITestFrameworkDiscoveryOptions discoveryOptions)
         {
-            discoverer.Find(typeName, includeSourceInformation, messageSink, options);
-        }
-
-        /// <inheritdoc/>
-        void ITestFrameworkDiscoverer.Find(string typeName, bool includeSourceInformation, IMessageSink messageSink, ITestFrameworkOptions options)
-        {
-            discoverer.Find(typeName, includeSourceInformation, messageSink, options);
+            discoverer.Find(typeName, includeSourceInformation, messageSink, discoveryOptions);
         }
 
         static string GetXunitExecutionAssemblyPath(string assemblyFileName)
@@ -138,7 +144,7 @@ namespace Xunit
             Guard.ArgumentNotNullOrEmpty("assemblyFileName", assemblyFileName);
             Guard.FileExists("assemblyFileName", assemblyFileName);
 
-            return Path.Combine(Path.GetDirectoryName(assemblyFileName), "xunit.execution.dll");
+            return Path.Combine(Path.GetDirectoryName(assemblyFileName), ExecutionHelper.AssemblyFileName);
         }
 
         static string GetXunitExecutionAssemblyPath(IAssemblyInfo assemblyInfo)
@@ -146,7 +152,7 @@ namespace Xunit
             Guard.ArgumentNotNull("assemblyInfo", assemblyInfo);
             Guard.ArgumentNotNullOrEmpty("assemblyInfo.AssemblyPath", assemblyInfo.AssemblyPath);
 
-            return Path.Combine(Path.GetDirectoryName(assemblyInfo.AssemblyPath), "xunit.execution.dll");
+            return Path.Combine(Path.GetDirectoryName(assemblyInfo.AssemblyPath), ExecutionHelper.AssemblyFileName);
         }
 
         /// <inheritdoc/>

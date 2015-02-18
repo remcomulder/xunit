@@ -1,8 +1,9 @@
 ﻿namespace Xunit.Abstractions
 {
     /// <summary>
-    /// Represents options given to an implementation of <see cref="ITestFrameworkDiscoverer"/>.Find
-    /// or <see cref="ITestFrameworkExecutor"/>.Run.
+    /// This interface should not be consumed directly; instead, you should
+    /// consume <see cref="ITestFrameworkDiscoveryOptions"/>
+    /// or <see cref="ITestFrameworkExecutionOptions"/>.
     /// </summary>
     public interface ITestFrameworkOptions
     {
@@ -11,9 +12,8 @@
         /// </summary>
         /// <typeparam name="TValue">The type of the value.</typeparam>
         /// <param name="name">The name of the value.</param>
-        /// <param name="defaultValue">The default value when none is present.</param>
         /// <returns>The value.</returns>
-        TValue GetValue<TValue>(string name, TValue defaultValue);
+        TValue GetValue<TValue>(string name);
 
         /// <summary>
         /// Sets an option value.

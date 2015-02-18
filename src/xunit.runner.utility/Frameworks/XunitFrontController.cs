@@ -13,6 +13,7 @@ namespace Xunit
     {
         readonly string assemblyFileName;
         readonly string configFileName;
+        readonly IMessageSink diagnosticMessageSink;
         IFrontController innerController;
         readonly bool shadowCopy;
         private readonly string shadowCopyFolder;
@@ -34,13 +35,20 @@ namespace Xunit
         /// will be automatically (randomly) generated</param>
         /// <param name="sourceInformationProvider">The source information provider. If <c>null</c>, uses the default (<see cref="T:Xunit.VisualStudioSourceInformationProvider"/>).</param>
         /// tests to be discovered and run without locking assembly files on disk.</param>
-        public XunitFrontController(string assemblyFileName, string configFileName = null, bool shadowCopy = true, string shadowCopyFolder = null, ISourceInformationProvider sourceInformationProvider = null)
+        /// <param name="diagnosticMessageSink">The message sink which received <see cref="IDiagnosticMessage"/> messages.</param>
+        public XunitFrontController(string assemblyFileName,
+                                    string configFileName = null,
+                                    bool shadowCopy = true,
+                                    string shadowCopyFolder = null,
+                                    ISourceInformationProvider sourceInformationProvider = null,
+                                    IMessageSink diagnosticMessageSink = null)
         {
             this.assemblyFileName = assemblyFileName;
             this.configFileName = configFileName;
             this.shadowCopy = shadowCopy;
             this.shadowCopyFolder = shadowCopyFolder;
             this.sourceInformationProvider = sourceInformationProvider;
+            this.diagnosticMessageSink = diagnosticMessageSink ?? new NullMessageSink();
 
             Guard.FileExists("assemblyFileName", assemblyFileName);
 
@@ -91,21 +99,21 @@ namespace Xunit
 #if !XAMARIN && !WINDOWS_PHONE_APP && !WINDOWS_PHONE
             var xunitPath = Path.Combine(Path.GetDirectoryName(assemblyFileName), "xunit.dll");
 #endif
-            var xunitExecutionPath = Path.Combine(Path.GetDirectoryName(assemblyFileName), "xunit.execution.dll");
+            var xunitExecutionPath = Path.Combine(Path.GetDirectoryName(assemblyFileName), ExecutionHelper.AssemblyFileName);
 
 #if !ANDROID && !ASPNET50 && !ASPNETCORE50
             if (File.Exists(xunitExecutionPath))
 #endif
-                return new Xunit2(sourceInformationProvider, assemblyFileName, configFileName, shadowCopy, shadowCopyFolder);
+                return new Xunit2(sourceInformationProvider, assemblyFileName, configFileName, shadowCopy, shadowCopyFolder, diagnosticMessageSink);
 #if !XAMARIN && !WINDOWS_PHONE_APP && !WINDOWS_PHONE && !ASPNET50 && !ASPNETCORE50
             if (File.Exists(xunitPath))
                 return new Xunit1(sourceInformationProvider, assemblyFileName, configFileName, shadowCopy, shadowCopyFolder);
 #endif
 
 #if XAMARIN || WINDOWS_PHONE_APP || WINDOWS_PHONE
-            throw new ArgumentException("Unknown test framework: Could not find xunit.execution.dll.", assemblyFileName);
+            throw new ArgumentException(String.Format("Unknown test framework: Could not find {0}", ExecutionHelper.AssemblyFileName), assemblyFileName);
 #else
-            throw new ArgumentException("Unknown test framework: Could not find xunit.dll or xunit.execution.dll.", assemblyFileName);
+            throw new ArgumentException(String.Format("Unknown test framework: Could not find xunit.dll or {0}.", ExecutionHelper.AssemblyFileName), assemblyFileName);
 #endif
         }
 
@@ -123,25 +131,25 @@ namespace Xunit
         }
 
         /// <inheritdoc/>
-        public virtual void Find(bool includeSourceInformation, IMessageSink messageSink, ITestFrameworkOptions discoveryOptions)
+        public virtual void Find(bool includeSourceInformation, IMessageSink messageSink, ITestFrameworkDiscoveryOptions discoveryOptions)
         {
             InnerController.Find(includeSourceInformation, messageSink, discoveryOptions);
         }
 
         /// <inheritdoc/>
-        public virtual void Find(string typeName, bool includeSourceInformation, IMessageSink messageSink, ITestFrameworkOptions discoveryOptions)
+        public virtual void Find(string typeName, bool includeSourceInformation, IMessageSink messageSink, ITestFrameworkDiscoveryOptions discoveryOptions)
         {
             InnerController.Find(typeName, includeSourceInformation, messageSink, discoveryOptions);
         }
 
         /// <inheritdoc/>
-        public virtual void RunAll(IMessageSink messageSink, ITestFrameworkOptions discoveryOptions, ITestFrameworkOptions executionOptions)
+        public virtual void RunAll(IMessageSink messageSink, ITestFrameworkDiscoveryOptions discoveryOptions, ITestFrameworkExecutionOptions executionOptions)
         {
             InnerController.RunAll(messageSink, discoveryOptions, executionOptions);
         }
 
         /// <inheritdoc/>
-        public virtual void RunTests(IEnumerable<ITestCase> testMethods, IMessageSink messageSink, ITestFrameworkOptions executionOptions)
+        public virtual void RunTests(IEnumerable<ITestCase> testMethods, IMessageSink messageSink, ITestFrameworkExecutionOptions executionOptions)
         {
             InnerController.RunTests(testMethods, messageSink, executionOptions);
         }

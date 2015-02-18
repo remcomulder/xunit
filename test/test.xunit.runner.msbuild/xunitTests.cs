@@ -225,7 +225,7 @@ public class xunitTests
 
             xunit._ExecuteAssembly("assemblyFilename", "configFilename");
 
-            xunit.FrontController.Received().Find(false, Arg.Any<IMessageSink>(), Arg.Any<TestFrameworkOptions>());
+            xunit.FrontController.Received().Find(false, Arg.Any<IMessageSink>(), Arg.Any<ITestFrameworkDiscoveryOptions>());
         }
 
         [Fact]
@@ -312,7 +312,7 @@ public class xunitTests
             return FrontController;
         }
 
-        protected override IFrontController CreateFrontController(string assemblyFilename, string configFileName)
+        protected override IFrontController CreateFrontController(string assemblyFilename, string configFileName, IMessageSink diagnosticMessageSink)
         {
             if (CreateFrontController_Exception != null)
                 throw CreateFrontController_Exception;

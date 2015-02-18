@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -123,7 +124,7 @@ public class XmlTestExecutionVisitorTests
             Assert.Equal("2064", assemblyElement.Attribute("passed").Value);
             Assert.Equal("42", assemblyElement.Attribute("failed").Value);
             Assert.Equal("6", assemblyElement.Attribute("skipped").Value);
-            Assert.Equal(123.457M.ToString(), assemblyElement.Attribute("time").Value);
+            Assert.Equal(123.457M.ToString(CultureInfo.InvariantCulture), assemblyElement.Attribute("time").Value);
             Assert.Equal("1", assemblyElement.Attribute("errors").Value);
         }
 
@@ -152,7 +153,7 @@ public class XmlTestExecutionVisitorTests
             Assert.Equal("2064", collectionElement.Attribute("passed").Value);
             Assert.Equal("42", collectionElement.Attribute("failed").Value);
             Assert.Equal("6", collectionElement.Attribute("skipped").Value);
-            Assert.Equal(123.457M.ToString(), collectionElement.Attribute("time").Value);
+            Assert.Equal(123.457M.ToString(CultureInfo.InvariantCulture), collectionElement.Attribute("time").Value);
         }
 
         [CulturedFact]
@@ -165,7 +166,8 @@ public class XmlTestExecutionVisitorTests
             var testPassed = Substitute.For<ITestPassed>();
             testPassed.TestCase.Returns(testCase);
             testPassed.Test.Returns(test);
-            testPassed.ExecutionTime.Returns(123.4567M);
+            testPassed.ExecutionTime.Returns(123.4567809M);
+            testPassed.Output.Returns("test output");
 
             var assemblyElement = new XElement("assembly");
             var visitor = new XmlTestExecutionVisitor(assemblyElement, () => false);
@@ -178,7 +180,41 @@ public class XmlTestExecutionVisitorTests
             Assert.Equal("XmlTestExecutionVisitorTests+Xml+ClassUnderTest", testElement.Attribute("type").Value);
             Assert.Equal("TestMethod", testElement.Attribute("method").Value);
             Assert.Equal("Pass", testElement.Attribute("result").Value);
-            Assert.Equal(123.457M.ToString(), testElement.Attribute("time").Value);
+            Assert.Equal(123.4567809M.ToString(CultureInfo.InvariantCulture), testElement.Attribute("time").Value);
+            Assert.Equal("test output", testElement.Element("output").Value);
+            Assert.Null(testElement.Attribute("source-file"));
+            Assert.Null(testElement.Attribute("source-line"));
+            Assert.Empty(testElement.Elements("traits"));
+            Assert.Empty(testElement.Elements("failure"));
+            Assert.Empty(testElement.Elements("reason"));
+        }
+
+        [CulturedFact]
+        public void EmptyOutputStringDoesNotShowUpInResultingXml()
+        {
+            var assemblyFinished = Substitute.For<ITestAssemblyFinished>();
+            var testCase = Mocks.TestCase<ClassUnderTest>("TestMethod");
+            testCase.SourceInformation.Returns(new SourceInformation());
+            var test = Mocks.Test(testCase, "Test Display Name");
+            var testPassed = Substitute.For<ITestPassed>();
+            testPassed.TestCase.Returns(testCase);
+            testPassed.Test.Returns(test);
+            testPassed.ExecutionTime.Returns(123.4567809M);
+            testPassed.Output.Returns(string.Empty);
+
+            var assemblyElement = new XElement("assembly");
+            var visitor = new XmlTestExecutionVisitor(assemblyElement, () => false);
+
+            visitor.OnMessage(testPassed);
+            visitor.OnMessage(assemblyFinished);
+
+            var testElement = Assert.Single(assemblyElement.Elements("collection").Single().Elements("test"));
+            Assert.Equal("Test Display Name", testElement.Attribute("name").Value);
+            Assert.Equal("XmlTestExecutionVisitorTests+Xml+ClassUnderTest", testElement.Attribute("type").Value);
+            Assert.Equal("TestMethod", testElement.Attribute("method").Value);
+            Assert.Equal("Pass", testElement.Attribute("result").Value);
+            Assert.Equal(123.4567809M.ToString(CultureInfo.InvariantCulture), testElement.Attribute("time").Value);
+            Assert.Null(testElement.Attribute("output"));
             Assert.Null(testElement.Attribute("source-file"));
             Assert.Null(testElement.Attribute("source-line"));
             Assert.Empty(testElement.Elements("traits"));
@@ -195,7 +231,8 @@ public class XmlTestExecutionVisitorTests
             var testFailed = Substitute.For<ITestFailed>();
             testFailed.TestCase.Returns(testCase);
             testFailed.Test.Returns(test);
-            testFailed.ExecutionTime.Returns(123.4567M);
+            testFailed.ExecutionTime.Returns(123.4567809M);
+            testFailed.Output.Returns("test output");
             testFailed.ExceptionTypes.Returns(new[] { "Exception Type" });
             testFailed.Messages.Returns(new[] { "Exception Message" });
             testFailed.StackTraces.Returns(new[] { "Exception Stack Trace" });
@@ -211,7 +248,8 @@ public class XmlTestExecutionVisitorTests
             Assert.Equal("XmlTestExecutionVisitorTests+Xml+ClassUnderTest", testElement.Attribute("type").Value);
             Assert.Equal("TestMethod", testElement.Attribute("method").Value);
             Assert.Equal("Fail", testElement.Attribute("result").Value);
-            Assert.Equal(123.457M.ToString(), testElement.Attribute("time").Value);
+            Assert.Equal(123.4567809M.ToString(CultureInfo.InvariantCulture), testElement.Attribute("time").Value);
+            Assert.Equal("test output", testElement.Element("output").Value);
             var failureElement = Assert.Single(testElement.Elements("failure"));
             Assert.Equal("Exception Type", failureElement.Attribute("exception-type").Value);
             Assert.Equal("Exception Type : Exception Message", failureElement.Elements("message").Single().Value);
@@ -265,7 +303,7 @@ public class XmlTestExecutionVisitorTests
             Assert.Equal("XmlTestExecutionVisitorTests+Xml+ClassUnderTest", testElement.Attribute("type").Value);
             Assert.Equal("TestMethod", testElement.Attribute("method").Value);
             Assert.Equal("Skip", testElement.Attribute("result").Value);
-            Assert.Equal(0.0M.ToString("0.000"), testElement.Attribute("time").Value);
+            Assert.Equal(0.0M.ToString(CultureInfo.InvariantCulture), testElement.Attribute("time").Value);
             var reasonElement = Assert.Single(testElement.Elements("reason"));
             Assert.Equal("Skip Reason", reasonElement.Value);
             Assert.Empty(testElement.Elements("failure"));
